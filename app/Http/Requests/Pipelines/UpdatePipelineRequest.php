@@ -1,0 +1,23 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\Pipelines;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdatePipelineRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()->can('update', $this->route('pipeline'));
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' => ['sometimes', 'string', 'max:255'],
+            'is_default' => ['sometimes', 'boolean'],
+        ];
+    }
+}
