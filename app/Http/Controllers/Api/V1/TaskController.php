@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Events\TaskAssigned;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\MoveTaskRequest;
 use App\Http\Requests\Tasks\StoreChecklistItemRequest;
@@ -46,6 +47,10 @@ class TaskController extends Controller
             ]);
         }
 
+        if ($task->owner_id !== null) {
+            TaskAssigned::dispatch($task, $task->owner_id);
+        }
+
         return new TaskResource($task->load(['owner', 'checklistItems']));
     }
 
@@ -58,7 +63,15 @@ class TaskController extends Controller
 
     public function update(UpdateTaskRequest $request, Task $task): TaskResource
     {
+        $previousOwnerId = $task->owner_id;
+
         $task->update($request->validated());
+
+        // Só quando o responsável realmente mudou: um PATCH de título não
+        // deve reenviar "nova tarefa atribuída a você".
+        if ($task->owner_id !== null && $task->owner_id !== $previousOwnerId) {
+            TaskAssigned::dispatch($task, $task->owner_id);
+        }
 
         return new TaskResource($task->load(['owner', 'checklistItems']));
     }

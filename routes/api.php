@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FileController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\MembershipController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\PipelineController;
 use App\Http\Controllers\Api\V1\RoleController;
@@ -81,6 +82,12 @@ Route::prefix('v1')->group(function () {
 
         Route::get('roles', [RoleController::class, 'index']);
         Route::get('audit-logs', [AuditLogController::class, 'index']);
+
+        Route::get('notifications', [NotificationController::class, 'index']);
+        Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::patch('notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+        Route::delete('notifications/{notification}', [NotificationController::class, 'destroy']);
     });
 
     // Fora do grupo auth:api/tenant de propósito: acessado via link direto

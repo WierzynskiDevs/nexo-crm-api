@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Events\EventScheduled;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Events\StoreEventGuestRequest;
 use App\Http\Requests\Events\StoreEventRequest;
@@ -53,6 +54,10 @@ class EventController extends Controller
 
             return $event;
         });
+
+        // Fora da transação: notificar convidados de um evento que sofreu
+        // rollback seria pior do que não notificar.
+        EventScheduled::dispatch($event);
 
         return new EventResource($event->load(['owner', 'guests']));
     }

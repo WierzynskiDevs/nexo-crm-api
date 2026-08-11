@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\OpportunityStatus;
+use App\Events\OpportunityWon;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Opportunities\MoveOpportunityStageRequest;
 use App\Http\Requests\Opportunities\StoreOpportunityRequest;
@@ -86,7 +87,7 @@ class OpportunityController extends Controller
 
     public function moveStage(MoveOpportunityStageRequest $request, Opportunity $opportunity): OpportunityResource
     {
-        DB::transaction(function () use ($request, $opportunity) {
+        $won = DB::transaction(function () use ($request, $opportunity) {
             $fromStageId = $opportunity->pipeline_stage_id;
             $toStage = PipelineStage::query()->findOrFail($request->string('pipeline_stage_id'));
 
@@ -115,7 +116,16 @@ class OpportunityController extends Controller
                 'moved_by_user_id' => Auth::guard('api')->id(),
                 'moved_at' => now(),
             ]);
+
+            return $toStage->is_won;
         });
+
+        // Fora da transação de propósito: o efeito colateral só faz sentido
+        // depois do commit — notificar sobre uma venda que sofreu rollback
+        // seria pior do que não notificar.
+        if ($won) {
+            OpportunityWon::dispatch($opportunity);
+        }
 
         return new OpportunityResource($opportunity->load('owner'));
     }
