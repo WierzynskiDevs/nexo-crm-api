@@ -87,6 +87,8 @@ class PipelineController extends Controller
 
     public function updateStage(UpdatePipelineStageRequest $request, Pipeline $pipeline, PipelineStage $stage): PipelineStageResource
     {
+        abort_unless($stage->pipeline_id === $pipeline->id, 404);
+
         $stage->update($request->validated());
 
         return new PipelineStageResource($stage);
@@ -95,6 +97,7 @@ class PipelineController extends Controller
     public function destroyStage(Pipeline $pipeline, PipelineStage $stage): JsonResponse
     {
         $this->authorize('update', $pipeline);
+        abort_unless($stage->pipeline_id === $pipeline->id, 404);
 
         $stage->delete();
 

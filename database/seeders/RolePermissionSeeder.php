@@ -24,14 +24,21 @@ use Illuminate\Support\Str;
  */
 class RolePermissionSeeder extends Seeder
 {
+    /**
+     * "Agenda" não existia no catálogo original do protótipo (só "Arquivos"
+     * cobria algo fora do núcleo Leads/Clientes/Pipeline/Tarefas) — foi
+     * adicionado aqui na Fase 7 ao construir o recurso de eventos.
+     */
     private const MODULES = [
-        'Leads', 'Clientes', 'Pipeline', 'Tarefas', 'Arquivos',
+        'Leads', 'Clientes', 'Pipeline', 'Tarefas', 'Agenda', 'Arquivos',
         'Usuários', 'Empresas', 'Logs', 'Configurações',
     ];
 
     private const ACTIONS = ['visualizar', 'criar', 'editar', 'excluir', 'exportar', 'configurar'];
 
-    private const CRM_MODULES = ['Leads', 'Clientes', 'Pipeline', 'Tarefas', 'Arquivos'];
+    private const CRM_MODULES = ['Leads', 'Clientes', 'Pipeline', 'Tarefas', 'Agenda', 'Arquivos'];
+
+    private const OWN_SCHEDULE_MODULES = ['Tarefas', 'Agenda'];
 
     public function run(): void
     {
@@ -85,8 +92,8 @@ class RolePermissionSeeder extends Seeder
             })(),
             'sales' => $grant(self::CRM_MODULES, ['visualizar', 'criar', 'editar']),
             'support' => (function () use ($grant) {
-                $grant(array_diff(self::CRM_MODULES, ['Tarefas']), ['visualizar']);
-                $grant(['Tarefas'], ['visualizar', 'criar', 'editar']);
+                $grant(array_diff(self::CRM_MODULES, self::OWN_SCHEDULE_MODULES), ['visualizar']);
+                $grant(self::OWN_SCHEDULE_MODULES, ['visualizar', 'criar', 'editar']);
             })(),
             default => null,
         };

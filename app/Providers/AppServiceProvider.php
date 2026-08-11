@@ -2,10 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Client;
+use App\Models\Lead;
+use App\Models\Opportunity;
+use App\Models\Task;
+use App\Models\User;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -34,6 +40,20 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->configureAuthEmailLinks();
+
+        // Nomes curtos e estáveis nas colunas polimórficas (*_type) em vez do
+        // namespace completo da classe — evita acoplar o banco à estrutura
+        // de pastas do PHP e permite mover/renomear classes sem migration.
+        // Não usamos enforceMorphMap: audit_logs precisa poder referenciar
+        // outros models (memberships, roles, etc.) que ainda não têm alias
+        // registrado, e enforceMorphMap rejeitaria qualquer um fora da lista.
+        Relation::morphMap([
+            'lead' => Lead::class,
+            'client' => Client::class,
+            'task' => Task::class,
+            'opportunity' => Opportunity::class,
+            'user' => User::class,
+        ]);
     }
 
     /**

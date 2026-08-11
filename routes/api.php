@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
 use App\Http\Controllers\Api\V1\Auth\InviteController;
 use App\Http\Controllers\Api\V1\Auth\PasswordResetController;
 use App\Http\Controllers\Api\V1\ClientController;
+use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\FileController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\PipelineController;
@@ -54,5 +56,20 @@ Route::prefix('v1')->group(function () {
         Route::post('tasks/{task}/checklist-items', [TaskController::class, 'storeChecklistItem']);
         Route::patch('tasks/{task}/checklist-items/{checklistItem}', [TaskController::class, 'updateChecklistItem']);
         Route::delete('tasks/{task}/checklist-items/{checklistItem}', [TaskController::class, 'destroyChecklistItem']);
+
+        Route::apiResource('events', EventController::class);
+        Route::patch('events/{event}/cancel', [EventController::class, 'cancel']);
+        Route::post('events/{event}/guests', [EventController::class, 'storeGuest']);
+        Route::patch('events/{event}/guests/{guest}', [EventController::class, 'updateGuest']);
+        Route::delete('events/{event}/guests/{guest}', [EventController::class, 'destroyGuest']);
+
+        Route::apiResource('files', FileController::class)->except(['update']);
+        Route::get('files/{file}/download-url', [FileController::class, 'downloadUrl']);
     });
+
+    // Fora do grupo auth:api/tenant de propósito: acessado via link direto
+    // (sem Bearer token), a assinatura temporária É a autorização.
+    Route::get('files/{file}/stream', [FileController::class, 'stream'])
+        ->middleware('signed')
+        ->name('files.stream');
 });

@@ -94,6 +94,8 @@ class TaskController extends Controller
 
     public function updateChecklistItem(UpdateChecklistItemRequest $request, Task $task, TaskChecklistItem $checklistItem): TaskChecklistItemResource
     {
+        abort_unless($checklistItem->task_id === $task->id, 404);
+
         $checklistItem->update($request->validated());
 
         return new TaskChecklistItemResource($checklistItem);
@@ -102,6 +104,7 @@ class TaskController extends Controller
     public function destroyChecklistItem(Task $task, TaskChecklistItem $checklistItem): JsonResponse
     {
         $this->authorize('update', $task);
+        abort_unless($checklistItem->task_id === $task->id, 404);
 
         $checklistItem->delete();
 
