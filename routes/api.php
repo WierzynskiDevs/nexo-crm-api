@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Auth\InviteController;
 use App\Http\Controllers\Api\V1\Auth\PasswordResetController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\ClientController;
+use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FileController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -43,6 +44,8 @@ Route::prefix('v1')->group(function () {
 
     // SubstituteBindings vem depois de "tenant" de propósito — ver bootstrap/app.php.
     Route::middleware(['auth:api', 'tenant', SubstituteBindings::class])->group(function () {
+        Route::get('dashboard', [DashboardController::class, 'index']);
+
         Route::apiResource('leads', LeadController::class);
         Route::apiResource('clients', ClientController::class);
 
