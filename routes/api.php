@@ -6,13 +6,17 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
 use App\Http\Controllers\Api\V1\Auth\InviteController;
 use App\Http\Controllers\Api\V1\Auth\PasswordResetController;
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FileController;
 use App\Http\Controllers\Api\V1\LeadController;
+use App\Http\Controllers\Api\V1\MembershipController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\PipelineController;
+use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\TaskController;
+use App\Http\Controllers\Api\V1\TeamController;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +69,15 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('files', FileController::class)->except(['update']);
         Route::get('files/{file}/download-url', [FileController::class, 'downloadUrl']);
+
+        Route::apiResource('members', MembershipController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::apiResource('teams', TeamController::class);
+        Route::post('teams/{team}/members', [TeamController::class, 'attachMember']);
+        Route::delete('teams/{team}/members/{user}', [TeamController::class, 'detachMember']);
+
+        Route::get('roles', [RoleController::class, 'index']);
+        Route::get('audit-logs', [AuditLogController::class, 'index']);
     });
 
     // Fora do grupo auth:api/tenant de propósito: acessado via link direto
