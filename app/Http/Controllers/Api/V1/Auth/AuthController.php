@@ -22,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
 {
@@ -31,6 +32,30 @@ class AuthController extends Controller
         private readonly TenantContext $tenantContext,
     ) {}
 
+    #[OA\Post(
+        path: '/api/v1/auth/register',
+        summary: 'Registra uma nova empresa e seu primeiro usuário',
+        description: 'Cria tenant, workspace, usuário e a membership de Admin numa única transação, e já devolve a sessão completa. Dispara o e-mail de verificação. Limitado por rate limit.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name', 'email', 'password', 'password_confirmation', 'company_name'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Marina Alves'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', minLength: 8),
+                    new OA\Property(property: 'password_confirmation', type: 'string', format: 'password'),
+                    new OA\Property(property: 'company_name', description: 'Nome da empresa (tenant)', type: 'string', example: 'Acme Holdings'),
+                ],
+            ),
+        ),
+        tags: ['Autenticação'],
+        responses: [
+            new OA\Response(response: 200, description: 'Sessão criada', content: new OA\JsonContent(ref: '#/components/schemas/SessionEnvelope')),
+            new OA\Response(response: 422, ref: '#/components/responses/ValidationError'),
+            new OA\Response(response: 429, description: 'Rate limit excedido', content: new OA\JsonContent(ref: '#/components/schemas/ErrorMessage')),
+        ],
+    )]
     public function register(RegisterRequest $request): JsonResponse
     {
         $result = $this->registration->register($request->validated());
@@ -40,6 +65,42 @@ class AuthController extends Controller
         return $this->issueFullSession($request, $result['user'], $result['tenant']->id, $result['role']->slug);
     }
 
+    #[OA\Post(
+        path: '/api/v1/auth/login',
+        summary: 'Autentica um usuário',
+        description: <<<'MD'
+            Com **uma** empresa ativa, devolve a sessão completa e o cookie de refresh.
+
+            Com **mais de uma**, devolve `requires_tenant_selection: true` e um access
+            token sem claim de tenant, que só serve para chamar `/auth/select-tenant`.
+
+            Credenciais inválidas e usuário sem empresa ativa respondem 422 com
+            mensagem genérica, para não revelar quais e-mails existem.
+            MD,
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'password'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password'),
+                ],
+            ),
+        ),
+        tags: ['Autenticação'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Sessão completa, ou desafio de seleção de empresa',
+                content: new OA\JsonContent(oneOf: [
+                    new OA\Schema(ref: '#/components/schemas/SessionEnvelope'),
+                    new OA\Schema(ref: '#/components/schemas/TenantSelectionEnvelope'),
+                ]),
+            ),
+            new OA\Response(response: 422, ref: '#/components/responses/ValidationError'),
+            new OA\Response(response: 429, description: 'Rate limit excedido', content: new OA\JsonContent(ref: '#/components/schemas/ErrorMessage')),
+        ],
+    )]
     public function login(LoginRequest $request): JsonResponse
     {
         $user = User::query()->where('email', $request->string('email'))->first();
@@ -80,6 +141,25 @@ class AuthController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/api/v1/auth/select-tenant',
+        summary: 'Escolhe a empresa e emite a sessão completa',
+        description: 'Segundo passo do login quando o usuário pertence a mais de uma empresa. A membership é revalidada aqui — não se confia no `tenant_id` enviado.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['tenant_id'],
+                properties: [new OA\Property(property: 'tenant_id', type: 'string', format: 'uuid')],
+            ),
+        ),
+        tags: ['Autenticação'],
+        responses: [
+            new OA\Response(response: 200, description: 'Sessão criada', content: new OA\JsonContent(ref: '#/components/schemas/SessionEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 422, description: 'Usuário não tem acesso ativo a esta empresa', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
+        ],
+    )]
     public function selectTenant(SelectTenantRequest $request): JsonResponse
     {
         /** @var User $user */
@@ -101,6 +181,17 @@ class AuthController extends Controller
         return $this->issueFullSession($request, $user, $membership->tenant_id, $membership->role->slug);
     }
 
+    #[OA\Post(
+        path: '/api/v1/auth/refresh',
+        summary: 'Renova o access token',
+        description: 'Lê o refresh token do cookie httpOnly (não do corpo) e o rotaciona: o anterior é invalidado na mesma chamada. Requer que o cliente envie cookies (`credentials: include`).',
+        tags: ['Autenticação'],
+        responses: [
+            new OA\Response(response: 200, description: 'Nova sessão, com cookie de refresh rotacionado', content: new OA\JsonContent(ref: '#/components/schemas/SessionEnvelope')),
+            new OA\Response(response: 401, description: 'Cookie ausente, sessão revogada ou expirada', content: new OA\JsonContent(ref: '#/components/schemas/ErrorMessage')),
+            new OA\Response(response: 429, description: 'Rate limit excedido', content: new OA\JsonContent(ref: '#/components/schemas/ErrorMessage')),
+        ],
+    )]
     public function refresh(Request $request): JsonResponse
     {
         $plain = $request->cookie('refresh_token');
@@ -135,6 +226,17 @@ class AuthController extends Controller
         ])->withCookie($this->tokens->refreshCookie($newPlain));
     }
 
+    #[OA\Post(
+        path: '/api/v1/auth/logout',
+        summary: 'Encerra a sessão',
+        description: 'Revoga a sessão de refresh, invalida o access token e limpa o cookie.',
+        security: [['bearerAuth' => []]],
+        tags: ['Autenticação'],
+        responses: [
+            new OA\Response(response: 204, ref: '#/components/responses/NoContent'),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+        ],
+    )]
     public function logout(Request $request): JsonResponse
     {
         $plain = $request->cookie('refresh_token');
@@ -151,6 +253,17 @@ class AuthController extends Controller
         return response()->json(null, 204)->withCookie($this->tokens->forgetRefreshCookie());
     }
 
+    #[OA\Get(
+        path: '/api/v1/auth/me',
+        summary: 'Dados da sessão corrente',
+        description: 'Usuário, empresa, papel e a lista de permissões efetivas — é a fonte que o frontend usa para montar a navegação. `tenant` e `role` vêm nulos se o token ainda não tiver claim de empresa.',
+        security: [['bearerAuth' => []]],
+        tags: ['Autenticação'],
+        responses: [
+            new OA\Response(response: 200, description: 'OK', content: new OA\JsonContent(ref: '#/components/schemas/CurrentSessionEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+        ],
+    )]
     public function me(Request $request): JsonResponse
     {
         /** @var User $user */

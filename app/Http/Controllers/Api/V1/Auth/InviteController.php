@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class InviteController extends Controller
 {
@@ -23,6 +24,29 @@ class InviteController extends Controller
      * A criação do convite (User + Membership status=invited) é feita pela
      * feature de gestão de usuários (Fase 8), não por este endpoint.
      */
+    #[OA\Post(
+        path: '/api/v1/auth/invites/accept',
+        summary: 'Aceita um convite e define a senha',
+        description: 'Fecha o fluxo iniciado em `POST /members`: define a senha do usuário convidado e ativa a membership.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['token', 'email', 'password', 'password_confirmation'],
+                properties: [
+                    new OA\Property(property: 'token', description: 'Token do link de convite', type: 'string'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', minLength: 8),
+                    new OA\Property(property: 'password_confirmation', type: 'string', format: 'password'),
+                ],
+            ),
+        ),
+        tags: ['Autenticação'],
+        responses: [
+            new OA\Response(response: 200, description: 'Convite aceito', content: new OA\JsonContent(ref: '#/components/schemas/ErrorMessage')),
+            new OA\Response(response: 422, description: 'Token inválido/expirado, ou nenhum convite pendente para o e-mail', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
+            new OA\Response(response: 429, description: 'Rate limit excedido', content: new OA\JsonContent(ref: '#/components/schemas/ErrorMessage')),
+        ],
+    )]
     public function accept(AcceptInviteRequest $request): JsonResponse
     {
         $status = Password::reset(

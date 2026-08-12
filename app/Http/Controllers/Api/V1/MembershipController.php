@@ -21,11 +21,28 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 
 class MembershipController extends Controller
 {
     public function __construct(private readonly AuditLogger $auditLogger) {}
 
+    #[OA\Get(
+        path: '/api/v1/members',
+        summary: 'Lista os membros da empresa',
+        security: [['bearerAuth' => []]],
+        tags: ['Governança'],
+        parameters: [
+            new OA\Parameter(ref: '#/components/parameters/page'),
+            new OA\Parameter(ref: '#/components/parameters/perPage'),
+            new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['invited', 'active', 'inactive'])),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Coleção paginada', content: new OA\JsonContent(ref: '#/components/schemas/MembershipCollection')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+        ],
+    )]
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Membership::class);
@@ -40,6 +57,30 @@ class MembershipController extends Controller
         return MembershipResource::collection($memberships);
     }
 
+    #[OA\Post(
+        path: '/api/v1/members',
+        summary: 'Convida um membro para a empresa',
+        description: 'Cria o usuário se ainda não existir e envia o convite por e-mail. A membership nasce como `invited` e vira `active` quando o convite é aceito. Registrado em auditoria.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name', 'email', 'role_id'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'role_id', description: 'Id de um papel do catálogo (`GET /roles`)', type: 'string', format: 'uuid'),
+                ],
+            ),
+        ),
+        tags: ['Governança'],
+        responses: [
+            new OA\Response(response: 201, description: 'Convite enviado', content: new OA\JsonContent(ref: '#/components/schemas/MembershipEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 422, ref: '#/components/responses/ValidationError'),
+        ],
+    )]
     public function store(InviteMemberRequest $request): MembershipResource
     {
         $tenant = app(TenantContext::class)->get();
@@ -72,6 +113,25 @@ class MembershipController extends Controller
         return new MembershipResource($membership->load(['user', 'role']));
     }
 
+    #[OA\Patch(
+        path: '/api/v1/members/{member}',
+        summary: 'Altera o papel ou o status de um membro',
+        description: 'A mudança é registrada em auditoria, com os valores anterior e novo.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(content: new OA\JsonContent(properties: [
+            new OA\Property(property: 'role_id', type: 'string', format: 'uuid'),
+            new OA\Property(property: 'status', type: 'string', enum: ['invited', 'active', 'inactive']),
+        ], type: 'object')),
+        tags: ['Governança'],
+        parameters: [new OA\Parameter(name: 'member', description: 'Id da membership (não do usuário)', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Membro atualizado', content: new OA\JsonContent(ref: '#/components/schemas/MembershipEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 404, ref: '#/components/responses/NotFound'),
+            new OA\Response(response: 422, ref: '#/components/responses/ValidationError'),
+        ],
+    )]
     public function update(UpdateMembershipRequest $request, Membership $member): MembershipResource
     {
         $before = $member->only(['role_id', 'status']);
@@ -83,6 +143,21 @@ class MembershipController extends Controller
         return new MembershipResource($member->load(['user', 'role']));
     }
 
+    #[OA\Delete(
+        path: '/api/v1/members/{member}',
+        summary: 'Remove um membro da empresa',
+        description: 'Um usuário não pode remover a própria membership — isso responde 422, para ninguém se trancar para fora da própria empresa.',
+        security: [['bearerAuth' => []]],
+        tags: ['Governança'],
+        parameters: [new OA\Parameter(name: 'member', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))],
+        responses: [
+            new OA\Response(response: 204, ref: '#/components/responses/NoContent'),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 404, ref: '#/components/responses/NotFound'),
+            new OA\Response(response: 422, description: 'Tentativa de remover a própria membership', content: new OA\JsonContent(ref: '#/components/schemas/ErrorMessage')),
+        ],
+    )]
     public function destroy(Request $request, Membership $member): JsonResponse
     {
         $this->authorize('delete', $member);

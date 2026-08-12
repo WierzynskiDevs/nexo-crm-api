@@ -19,9 +19,28 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 
 class OpportunityController extends Controller
 {
+    #[OA\Get(
+        path: '/api/v1/opportunities',
+        summary: 'Lista as oportunidades do tenant',
+        security: [['bearerAuth' => []]],
+        tags: ['Oportunidades'],
+        parameters: [
+            new OA\Parameter(ref: '#/components/parameters/page'),
+            new OA\Parameter(ref: '#/components/parameters/perPage'),
+            new OA\Parameter(name: 'pipeline_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'pipeline_stage_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['open', 'won', 'lost'])),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Coleção paginada', content: new OA\JsonContent(ref: '#/components/schemas/OpportunityCollection')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+        ],
+    )]
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Opportunity::class);
@@ -37,6 +56,36 @@ class OpportunityController extends Controller
         return OpportunityResource::collection($opportunities);
     }
 
+    #[OA\Post(
+        path: '/api/v1/opportunities',
+        summary: 'Cria uma oportunidade',
+        description: 'Registra também a transição inicial de etapa. Os ids referenciados são validados contra o tenant corrente.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name', 'pipeline_id', 'pipeline_stage_id'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'pipeline_id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'pipeline_stage_id', description: 'Precisa pertencer ao pipeline informado', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'lead_id', type: 'string', format: 'uuid', nullable: true),
+                    new OA\Property(property: 'client_id', type: 'string', format: 'uuid', nullable: true),
+                    new OA\Property(property: 'owner_id', type: 'string', format: 'uuid', nullable: true),
+                    new OA\Property(property: 'value_cents', type: 'integer'),
+                    new OA\Property(property: 'probability', type: 'integer', maximum: 100, minimum: 0),
+                    new OA\Property(property: 'expected_close_date', type: 'string', format: 'date', nullable: true),
+                ],
+            ),
+        ),
+        tags: ['Oportunidades'],
+        responses: [
+            new OA\Response(response: 201, description: 'Oportunidade criada', content: new OA\JsonContent(ref: '#/components/schemas/OpportunityEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 422, ref: '#/components/responses/ValidationError'),
+        ],
+    )]
     public function store(StoreOpportunityRequest $request): OpportunityResource
     {
         $opportunity = DB::transaction(function () use ($request) {
@@ -62,6 +111,19 @@ class OpportunityController extends Controller
         return new OpportunityResource($opportunity->load('owner'));
     }
 
+    #[OA\Get(
+        path: '/api/v1/opportunities/{opportunity}',
+        summary: 'Exibe uma oportunidade',
+        security: [['bearerAuth' => []]],
+        tags: ['Oportunidades'],
+        parameters: [new OA\Parameter(name: 'opportunity', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))],
+        responses: [
+            new OA\Response(response: 200, description: 'OK', content: new OA\JsonContent(ref: '#/components/schemas/OpportunityEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 404, ref: '#/components/responses/NotFound'),
+        ],
+    )]
     public function show(Opportunity $opportunity): OpportunityResource
     {
         $this->authorize('view', $opportunity);
@@ -69,6 +131,22 @@ class OpportunityController extends Controller
         return new OpportunityResource($opportunity->load('owner', 'stageTransitions'));
     }
 
+    #[OA\Put(
+        path: '/api/v1/opportunities/{opportunity}',
+        summary: 'Atualiza uma oportunidade',
+        description: 'Para mover de etapa use `PATCH /opportunities/{opportunity}/stage`, que também registra a transição.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(content: new OA\JsonContent(ref: '#/components/schemas/Opportunity')),
+        tags: ['Oportunidades'],
+        parameters: [new OA\Parameter(name: 'opportunity', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Oportunidade atualizada', content: new OA\JsonContent(ref: '#/components/schemas/OpportunityEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 404, ref: '#/components/responses/NotFound'),
+            new OA\Response(response: 422, ref: '#/components/responses/ValidationError'),
+        ],
+    )]
     public function update(UpdateOpportunityRequest $request, Opportunity $opportunity): OpportunityResource
     {
         $opportunity->update($request->validated());
@@ -76,6 +154,19 @@ class OpportunityController extends Controller
         return new OpportunityResource($opportunity->load('owner'));
     }
 
+    #[OA\Delete(
+        path: '/api/v1/opportunities/{opportunity}',
+        summary: 'Exclui uma oportunidade (soft delete)',
+        security: [['bearerAuth' => []]],
+        tags: ['Oportunidades'],
+        parameters: [new OA\Parameter(name: 'opportunity', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))],
+        responses: [
+            new OA\Response(response: 204, ref: '#/components/responses/NoContent'),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 404, ref: '#/components/responses/NotFound'),
+        ],
+    )]
     public function destroy(Opportunity $opportunity): JsonResponse
     {
         $this->authorize('delete', $opportunity);
@@ -85,6 +176,41 @@ class OpportunityController extends Controller
         return response()->json(null, 204);
     }
 
+    #[OA\Patch(
+        path: '/api/v1/opportunities/{opportunity}/stage',
+        summary: 'Move a oportunidade de etapa',
+        description: <<<'MD'
+            Além de mover, registra a transição e ajusta o status conforme a etapa
+            de destino: etapa de ganho marca `won` e preenche `closed_at`; etapa de
+            perda marca `lost` e grava o `lost_reason`; qualquer outra volta o
+            status para `open` e limpa o fechamento.
+
+            Mover para uma etapa de ganho dispara a notificação de oportunidade
+            ganha para os demais membros do tenant.
+
+            A etapa de destino precisa pertencer ao mesmo pipeline da oportunidade.
+            MD,
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['pipeline_stage_id'],
+                properties: [
+                    new OA\Property(property: 'pipeline_stage_id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'lost_reason', description: 'Considerado apenas quando a etapa de destino é de perda', type: 'string', nullable: true),
+                ],
+            ),
+        ),
+        tags: ['Oportunidades'],
+        parameters: [new OA\Parameter(name: 'opportunity', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Oportunidade movida', content: new OA\JsonContent(ref: '#/components/schemas/OpportunityEnvelope')),
+            new OA\Response(response: 401, ref: '#/components/responses/Unauthorized'),
+            new OA\Response(response: 403, ref: '#/components/responses/Forbidden'),
+            new OA\Response(response: 404, ref: '#/components/responses/NotFound'),
+            new OA\Response(response: 422, ref: '#/components/responses/ValidationError'),
+        ],
+    )]
     public function moveStage(MoveOpportunityStageRequest $request, Opportunity $opportunity): OpportunityResource
     {
         $won = DB::transaction(function () use ($request, $opportunity) {

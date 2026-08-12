@@ -18,6 +18,10 @@
 /public/storage
 /storage/*.key
 /storage/pail
+# Gerado a partir dos atributos OpenAPI (php artisan l5-swagger:generate).
+# Versionar o artefato só criaria conflito de merge e deixaria o contrato
+# divergir em silêncio de quem esqueceu de regenerar.
+/storage/api-docs
 /vendor
 Homestead.json
 Homestead.yaml
