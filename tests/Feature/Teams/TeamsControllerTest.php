@@ -12,9 +12,13 @@ beforeEach(function () {
 });
 
 it('creates a team with initial members', function () {
-    ['token' => $token] = actingAsTenantUser('admin');
+    ['token' => $token, 'tenant' => $tenant] = actingAsTenantUser('admin');
+    // Precisam ser membros ativos do tenant: desde a Fase 12, referenciar um
+    // usuário de fora da empresa é rejeitado na validação.
     $memberA = User::factory()->create();
     $memberB = User::factory()->create();
+    memberOf($memberA, $tenant, 'sales');
+    memberOf($memberB, $tenant, 'sales');
 
     $response = $this->withHeader('Authorization', "Bearer {$token}")
         ->postJson('/api/v1/teams', [
@@ -31,6 +35,7 @@ it('attaches and detaches a team member', function () {
     ['token' => $token, 'tenant' => $tenant] = actingAsTenantUser('admin');
     $team = Team::factory()->create(['tenant_id' => $tenant->id]);
     $user = User::factory()->create();
+    memberOf($user, $tenant, 'sales');
 
     $this->withHeader('Authorization', "Bearer {$token}")
         ->postJson("/api/v1/teams/{$team->id}/members", ['user_id' => $user->id])

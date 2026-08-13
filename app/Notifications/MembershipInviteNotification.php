@@ -26,11 +26,16 @@ class MembershipInviteNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        // O tenant vai no link porque o token em si (broker de senha) não
+        // carrega empresa nenhuma: sem ele, aceitar um convite ativaria as
+        // memberships pendentes do usuário em TODAS as empresas que o
+        // convidaram, inclusive as que ele nunca quis entrar.
         $url = sprintf(
-            '%s/accept-invite?token=%s&email=%s',
+            '%s/accept-invite?token=%s&email=%s&tenant_id=%s',
             rtrim((string) config('app.frontend_url'), '/'),
             $this->token,
             urlencode($notifiable->getEmailForPasswordReset()),
+            $this->tenant->id,
         );
 
         return (new MailMessage)

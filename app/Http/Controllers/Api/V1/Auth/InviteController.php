@@ -31,10 +31,11 @@ class InviteController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['token', 'email', 'password', 'password_confirmation'],
+                required: ['token', 'email', 'tenant_id', 'password', 'password_confirmation'],
                 properties: [
                     new OA\Property(property: 'token', description: 'Token do link de convite', type: 'string'),
                     new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'tenant_id', description: 'Empresa que enviou o convite; vem no link do e-mail e delimita qual membership é ativada', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'password', type: 'string', format: 'password', minLength: 8),
                     new OA\Property(property: 'password_confirmation', type: 'string', format: 'password'),
                 ],
@@ -49,16 +50,39 @@ class InviteController extends Controller
     )]
     public function accept(AcceptInviteRequest $request): JsonResponse
     {
+        $tenantId = (string) $request->string('tenant_id');
+
+        // Confere o convite ANTES de consumir o token: Password::reset apaga o
+        // token assim que o callback roda, e queimá-lo por um tenant_id que
+        // não confere obrigaria a pessoa a pedir um novo convite.
+        $convitePendente = Membership::query()
+            ->whereHas('user', fn ($query) => $query->where('email', $request->string('email')))
+            ->where('tenant_id', $tenantId)
+            ->where('status', MembershipStatus::Invited)
+            ->exists();
+
+        if (! $convitePendente) {
+            throw ValidationException::withMessages([
+                'token' => ['Convite inválido ou expirado.'],
+            ]);
+        }
+
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
+            function (User $user, string $password) use ($tenantId) {
                 $user->forceFill([
                     'password' => Hash::make($password),
                     'email_verified_at' => $user->email_verified_at ?? now(),
                 ])->save();
 
+                // Ativa SOMENTE a membership do tenant que convidou. Sem o
+                // filtro por tenant, aceitar um convite (ou usar um token de
+                // reset de senha comum, que é o mesmo broker) ativaria de uma
+                // vez todos os convites pendentes do usuário — inclusive de
+                // empresas em que ele nunca quis entrar.
                 Membership::query()
                     ->where('user_id', $user->id)
+                    ->where('tenant_id', $tenantId)
                     ->where('status', MembershipStatus::Invited)
                     ->update(['status' => MembershipStatus::Active, 'joined_at' => now()]);
             },

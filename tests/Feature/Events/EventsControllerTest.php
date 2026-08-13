@@ -15,7 +15,9 @@ beforeEach(function () {
 
 it('creates an event with a mix of internal and external guests', function () {
     ['token' => $token, 'tenant' => $tenant] = actingAsTenantUser('sales');
+    // Convidado interno precisa ser membro ativo do tenant (Fase 12).
     $colleague = User::factory()->create();
+    memberOf($colleague, $tenant, 'sales');
 
     $response = $this->withHeader('Authorization', "Bearer {$token}")
         ->postJson('/api/v1/events', [

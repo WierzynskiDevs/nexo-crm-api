@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Client;
+use App\Models\Lead;
 use App\Models\Tenant;
 use Database\Seeders\RolePermissionSeeder;
 
@@ -33,7 +34,7 @@ it('creates a client scoped to the tenant', function () {
 
 it('rejects referencing a lead from another tenant as converted_from_lead_id', function () {
     ['token' => $token] = actingAsTenantUser('manager');
-    $foreignLead = \App\Models\Lead::factory()->create(['tenant_id' => Tenant::factory()->create()->id]);
+    $foreignLead = Lead::factory()->create(['tenant_id' => Tenant::factory()->create()->id]);
 
     $this->withHeader('Authorization', "Bearer {$token}")
         ->postJson('/api/v1/clients', [

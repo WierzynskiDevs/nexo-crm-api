@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Pipeline;
+use App\Models\PipelineStage;
 use App\Models\Tenant;
 use Database\Seeders\RolePermissionSeeder;
 
@@ -29,8 +30,8 @@ it('creates a pipeline with default stages', function () {
 it('adds, updates and reorders stages of a pipeline', function () {
     ['token' => $token, 'tenant' => $tenant] = actingAsTenantUser('admin');
     $pipeline = Pipeline::factory()->create(['tenant_id' => $tenant->id]);
-    $stage1 = \App\Models\PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 0]);
-    $stage2 = \App\Models\PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 1]);
+    $stage1 = PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 0]);
+    $stage2 = PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 1]);
 
     $this->withHeader('Authorization', "Bearer {$token}")
         ->postJson("/api/v1/pipelines/{$pipeline->id}/stages", ['name' => 'Nova etapa'])

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
 use App\Http\Controllers\Api\V1\Auth\InviteController;
 use App\Http\Controllers\Api\V1\Auth\PasswordResetController;
-use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EventController;

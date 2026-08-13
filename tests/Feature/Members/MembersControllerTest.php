@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\MembershipStatus;
 use App\Models\AuditLog;
 use App\Models\Membership;
 use App\Models\Role;

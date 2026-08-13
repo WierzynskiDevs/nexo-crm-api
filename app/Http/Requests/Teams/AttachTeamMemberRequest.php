@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Teams;
 
+use App\Rules\TenantScopedRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AttachTeamMemberRequest extends FormRequest
@@ -16,7 +17,7 @@ class AttachTeamMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['required', 'uuid'],
+            'user_id' => ['required', 'uuid', TenantScopedRules::activeMember()],
         ];
     }
 }

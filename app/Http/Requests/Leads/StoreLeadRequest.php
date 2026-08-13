@@ -8,6 +8,7 @@ use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Enums\Priority;
 use App\Models\Lead;
+use App\Rules\TenantScopedRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,8 +33,8 @@ class StoreLeadRequest extends FormRequest
             'value_cents' => ['sometimes', 'integer', 'min:0'],
             'notes' => ['nullable', 'string'],
             'due_at' => ['nullable', 'date'],
-            'owner_id' => ['nullable', 'uuid'],
-            'workspace_id' => ['nullable', 'uuid'],
+            'owner_id' => ['nullable', 'uuid', TenantScopedRules::activeMember()],
+            'workspace_id' => ['nullable', 'uuid', TenantScopedRules::workspace()],
             'tags' => ['sometimes', 'array'],
             'tags.*' => ['string', 'max:60'],
         ];

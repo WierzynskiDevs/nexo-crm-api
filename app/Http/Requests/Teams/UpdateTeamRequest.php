@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Teams;
 
+use App\Rules\TenantScopedRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateTeamRequest extends FormRequest
@@ -17,8 +18,8 @@ class UpdateTeamRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'lead_user_id' => ['nullable', 'uuid'],
-            'pipeline_id' => ['nullable', 'uuid'],
+            'lead_user_id' => ['nullable', 'uuid', TenantScopedRules::activeMember()],
+            'pipeline_id' => ['nullable', 'uuid', TenantScopedRules::pipeline()],
             'goal_amount_cents' => ['nullable', 'integer', 'min:0'],
         ];
     }

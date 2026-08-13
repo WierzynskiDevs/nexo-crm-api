@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\NotificationType;
 use App\Models\Notification as NotificationModel;
+use App\Models\Opportunity;
 use App\Models\Pipeline;
 use App\Models\PipelineStage;
 use App\Models\Scopes\TenantScope;
@@ -31,7 +32,7 @@ it('notifies the rest of the tenant when an opportunity is won', function () {
     $open = PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 0]);
     $wonStage = PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 1, 'is_won' => true]);
 
-    $opportunity = App\Models\Opportunity::factory()->create([
+    $opportunity = Opportunity::factory()->create([
         'tenant_id' => $tenant->id,
         'pipeline_id' => $pipeline->id,
         'pipeline_stage_id' => $open->id,
@@ -55,7 +56,7 @@ it('does not notify when the opportunity moves to a stage that is not won', func
     $first = PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 0]);
     $second = PipelineStage::factory()->create(['pipeline_id' => $pipeline->id, 'position' => 1]);
 
-    $opportunity = App\Models\Opportunity::factory()->create([
+    $opportunity = Opportunity::factory()->create([
         'tenant_id' => $tenant->id,
         'pipeline_id' => $pipeline->id,
         'pipeline_stage_id' => $first->id,

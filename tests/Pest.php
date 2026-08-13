@@ -1,5 +1,15 @@
 <?php
 
+use App\Enums\MembershipStatus;
+use App\Models\Membership;
+use App\Models\Role;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Services\Auth\TokenService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,13 +21,13 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->beforeEach(function () {
         // CACHE_STORE=array é um singleton por processo: sem isso, os
         // limiters de "throttle" acumulam hits entre testes (mesmo IP) e
         // passam a devolver 429 em testes que nada têm a ver com rate limit.
-        Illuminate\Support\Facades\Cache::flush();
+        Cache::flush();
     })
     ->in('Feature');
 
@@ -47,13 +57,13 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function memberOf(App\Models\User $user, App\Models\Tenant $tenant, string $roleSlug): App\Models\Membership
+function memberOf(User $user, Tenant $tenant, string $roleSlug): Membership
 {
-    return App\Models\Membership::query()->create([
+    return Membership::query()->create([
         'user_id' => $user->id,
         'tenant_id' => $tenant->id,
-        'role_id' => App\Models\Role::query()->where('slug', $roleSlug)->firstOrFail()->id,
-        'status' => App\Enums\MembershipStatus::Active,
+        'role_id' => Role::query()->where('slug', $roleSlug)->firstOrFail()->id,
+        'status' => MembershipStatus::Active,
         'joined_at' => now(),
     ]);
 }
@@ -64,16 +74,16 @@ function memberOf(App\Models\User $user, App\Models\Tenant $tenant, string $role
  * testes de recursos de domínio. Requer que RolePermissionSeeder já tenha
  * rodado no teste (roles/permissions precisam existir).
  *
- * @return array{token: string, tenant: App\Models\Tenant, user: App\Models\User}
+ * @return array{token: string, tenant: Tenant, user: User}
  */
 function actingAsTenantUser(string $roleSlug = 'admin'): array
 {
-    $tenant = App\Models\Tenant::factory()->create();
-    $user = App\Models\User::factory()->create();
+    $tenant = Tenant::factory()->create();
+    $user = User::factory()->create();
     memberOf($user, $tenant, $roleSlug);
 
-    $role = App\Models\Role::query()->where('slug', $roleSlug)->firstOrFail();
-    $token = app(App\Services\Auth\TokenService::class)->issueAccessToken($user, $tenant, $role);
+    $role = Role::query()->where('slug', $roleSlug)->firstOrFail();
+    $token = app(TokenService::class)->issueAccessToken($user, $tenant, $role);
 
     return ['token' => $token, 'tenant' => $tenant, 'user' => $user];
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Notification;
+use App\Models\Scopes\TenantScope;
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -138,7 +139,7 @@ it('deletes only its own notification', function () {
         ->deleteJson("/api/v1/notifications/{$notification->id}")
         ->assertStatus(204);
 
-    expect(Notification::withoutGlobalScope(App\Models\Scopes\TenantScope::class)->find($notification->id))->toBeNull();
+    expect(Notification::withoutGlobalScope(TenantScope::class)->find($notification->id))->toBeNull();
 });
 
 it('rejects unauthenticated access', function () {

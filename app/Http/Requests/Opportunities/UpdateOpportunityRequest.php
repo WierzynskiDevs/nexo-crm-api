@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Opportunities;
 
+use App\Rules\TenantScopedRules;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,7 +30,7 @@ class UpdateOpportunityRequest extends FormRequest
                 'nullable', 'uuid',
                 Rule::exists('clients', 'id')->where('tenant_id', $tenantId),
             ],
-            'owner_id' => ['nullable', 'uuid'],
+            'owner_id' => ['nullable', 'uuid', TenantScopedRules::activeMember()],
             'value_cents' => ['sometimes', 'integer', 'min:0'],
             'probability' => ['sometimes', 'integer', 'min:0', 'max:100'],
             'expected_close_date' => ['nullable', 'date'],

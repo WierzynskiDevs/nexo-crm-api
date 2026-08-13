@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Events;
 
+use App\Rules\TenantScopedRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -17,7 +18,7 @@ class StoreEventGuestRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['sometimes', 'uuid'],
+            'user_id' => ['sometimes', 'uuid', TenantScopedRules::activeMember()],
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255'],
         ];

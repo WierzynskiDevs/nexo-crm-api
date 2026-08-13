@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Lead;
+use App\Models\Scopes\TenantScope;
 use App\Models\Tenant;
 use Database\Seeders\RolePermissionSeeder;
 
@@ -35,7 +36,7 @@ it('creates a lead scoped to the authenticated tenant with tags', function () {
     $response->assertCreated()->assertJsonPath('data.name', 'Maria Fernandes');
     expect($response->json('data.tags'))->toEqualCanonicalizing(['quente', 'prioridade']);
 
-    $lead = Lead::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->first();
+    $lead = Lead::withoutGlobalScope(TenantScope::class)->first();
     expect($lead->tenant_id)->toBe($tenant->id);
 });
 
@@ -75,7 +76,7 @@ it('deletes a lead when the user has leads.excluir', function () {
         ->deleteJson("/api/v1/leads/{$lead->id}")
         ->assertStatus(204);
 
-    expect(Lead::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->withTrashed()->find($lead->id)->trashed())->toBeTrue();
+    expect(Lead::withoutGlobalScope(TenantScope::class)->withTrashed()->find($lead->id)->trashed())->toBeTrue();
 });
 
 it('rejects deleting a lead without leads.excluir (sales role)', function () {

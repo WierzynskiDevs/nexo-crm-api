@@ -7,6 +7,7 @@ namespace App\Http\Requests\Clients;
 use App\Enums\ClientHealth;
 use App\Enums\ClientSegment;
 use App\Models\Client;
+use App\Rules\TenantScopedRules;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,8 +30,8 @@ class StoreClientRequest extends FormRequest
             'health' => ['sometimes', Rule::in(array_column(ClientHealth::cases(), 'value'))],
             'segment' => ['sometimes', Rule::in(array_column(ClientSegment::cases(), 'value'))],
             'client_since' => ['nullable', 'date'],
-            'owner_id' => ['nullable', 'uuid'],
-            'workspace_id' => ['nullable', 'uuid'],
+            'owner_id' => ['nullable', 'uuid', TenantScopedRules::activeMember()],
+            'workspace_id' => ['nullable', 'uuid', TenantScopedRules::workspace()],
             'converted_from_lead_id' => [
                 'nullable', 'uuid',
                 Rule::exists('leads', 'id')->where('tenant_id', app(TenantContext::class)->id()),

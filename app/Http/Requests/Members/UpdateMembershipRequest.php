@@ -18,7 +18,14 @@ class UpdateMembershipRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role_id' => ['sometimes', 'uuid', 'exists:roles,id'],
+            // super_admin fica fora do catálogo atribuível: é o papel de
+            // administração cross-tenant (ver RolePermissionSeeder), e
+            // qualquer Admin com "usuarios.editar" poderia se conceder a si
+            // mesmo — ou a um cúmplice — acesso fora do próprio tenant.
+            'role_id' => [
+                'sometimes', 'uuid',
+                Rule::exists('roles', 'id')->where(fn ($query) => $query->where('slug', '!=', 'super_admin')),
+            ],
             'status' => ['sometimes', Rule::in([MembershipStatus::Active->value, MembershipStatus::Inactive->value])],
         ];
     }

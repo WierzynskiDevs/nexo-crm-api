@@ -6,6 +6,7 @@ namespace App\Http\Requests\Tasks;
 
 use App\Enums\Priority;
 use App\Enums\TaskColumn;
+use App\Rules\TenantScopedRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +25,7 @@ class UpdateTaskRequest extends FormRequest
             'column' => ['sometimes', Rule::in(array_column(TaskColumn::cases(), 'value'))],
             'priority' => ['sometimes', Rule::in(array_column(Priority::cases(), 'value'))],
             'tag' => ['nullable', 'string', 'max:60'],
-            'owner_id' => ['nullable', 'uuid'],
+            'owner_id' => ['nullable', 'uuid', TenantScopedRules::activeMember()],
             'due_at' => ['nullable', 'date'],
         ];
     }

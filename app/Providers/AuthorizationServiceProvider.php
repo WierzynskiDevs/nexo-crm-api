@@ -17,7 +17,6 @@ use Illuminate\Support\ServiceProvider;
  *
  * Abilities que não correspondem a um slug conhecido retornam null (deixam
  * a resolução padrão do Gate seguir, ex.: Policies de recurso da Fase 6).
- * Super Admin nunca é bloqueado por essa checagem.
  */
 class AuthorizationServiceProvider extends ServiceProvider
 {
@@ -30,12 +29,24 @@ class AuthorizationServiceProvider extends ServiceProvider
                 return null;
             }
 
-            if ($user->hasRole('super_admin', $tenant)) {
-                return true;
-            }
-
+            // A checagem de slug vem ANTES do atalho de super_admin de
+            // propósito. Um Gate::before que devolve true para qualquer
+            // ability curto-circuitaria as Policies de recurso inteiras —
+            // inclusive o belongsToCurrentTenant() delas. Como Membership e
+            // AuditLog não têm TenantScope, essa checagem é a única barreira
+            // de tenant nesses recursos, e pulá-la deixaria um super_admin
+            // alcançar registros de outros tenants por ID direto.
+            //
+            // Restringindo o atalho aos slugs de permissão, o super_admin
+            // continua tendo todas as permissões (as Policies chamam
+            // $user->can('modulo.acao'), que cai aqui), mas a Policy roda e
+            // a checagem de tenant permanece de pé.
             if (! Permission::query()->where('slug', $ability)->exists()) {
                 return null;
+            }
+
+            if ($user->hasRole('super_admin', $tenant)) {
+                return true;
             }
 
             return $user->hasPermission($ability, $tenant);

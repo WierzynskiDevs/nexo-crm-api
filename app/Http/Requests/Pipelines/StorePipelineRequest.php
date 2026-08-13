@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Pipelines;
 
 use App\Models\Pipeline;
+use App\Rules\TenantScopedRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePipelineRequest extends FormRequest
@@ -18,7 +19,7 @@ class StorePipelineRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'workspace_id' => ['nullable', 'uuid'],
+            'workspace_id' => ['nullable', 'uuid', TenantScopedRules::workspace()],
             'is_default' => ['sometimes', 'boolean'],
             'stages' => ['sometimes', 'array', 'min:1'],
             'stages.*' => ['string', 'max:255'],

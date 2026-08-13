@@ -19,6 +19,9 @@ class AcceptInviteRequest extends FormRequest
         return [
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
+            // Obrigatório: é ele que delimita QUAL convite está sendo aceito
+            // (ver comentário em MembershipInviteNotification).
+            'tenant_id' => ['required', 'uuid'],
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ];
     }

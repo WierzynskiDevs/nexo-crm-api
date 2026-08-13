@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\Opportunity;
 use App\Models\Pipeline;
 use App\Models\PipelineStage;
+use App\Models\StageTransition;
 use App\Models\Tenant;
 use Database\Seeders\RolePermissionSeeder;
 
@@ -37,7 +39,7 @@ it('creates an opportunity and records the initial stage transition', function (
     $response->assertCreated()->assertJsonPath('data.status', 'open');
 
     $opportunityId = $response->json('data.id');
-    expect(\App\Models\StageTransition::query()->where('opportunity_id', $opportunityId)->count())->toBe(1);
+    expect(StageTransition::query()->where('opportunity_id', $opportunityId)->count())->toBe(1);
 });
 
 it('rejects referencing a pipeline_stage_id that does not belong to the given pipeline', function () {
@@ -58,7 +60,7 @@ it('rejects referencing a pipeline_stage_id that does not belong to the given pi
 it('moves an opportunity to the won stage and marks it closed', function () {
     ['token' => $token, 'tenant' => $tenant] = actingAsTenantUser('sales');
     $pipeline = pipelineWithStages($tenant->id);
-    $opportunity = \App\Models\Opportunity::factory()->create([
+    $opportunity = Opportunity::factory()->create([
         'tenant_id' => $tenant->id,
         'pipeline_id' => $pipeline->id,
         'pipeline_stage_id' => $pipeline->stages->first()->id,
@@ -72,14 +74,14 @@ it('moves an opportunity to the won stage and marks it closed', function () {
         ->assertJsonPath('data.pipeline_stage_id', $wonStage->id);
 
     expect($opportunity->refresh()->closed_at)->not->toBeNull();
-    expect(\App\Models\StageTransition::query()->where('opportunity_id', $opportunity->id)->count())->toBe(1);
+    expect(StageTransition::query()->where('opportunity_id', $opportunity->id)->count())->toBe(1);
 });
 
 it('rejects moving an opportunity to a stage of a different pipeline', function () {
     ['token' => $token, 'tenant' => $tenant] = actingAsTenantUser('sales');
     $pipelineA = pipelineWithStages($tenant->id);
     $pipelineB = pipelineWithStages($tenant->id);
-    $opportunity = \App\Models\Opportunity::factory()->create([
+    $opportunity = Opportunity::factory()->create([
         'tenant_id' => $tenant->id,
         'pipeline_id' => $pipelineA->id,
         'pipeline_stage_id' => $pipelineA->stages->first()->id,
@@ -96,7 +98,7 @@ it('returns 404 for an opportunity belonging to another tenant', function () {
     ['token' => $token] = actingAsTenantUser('sales');
     $foreignTenant = Tenant::factory()->create();
     $foreignPipeline = pipelineWithStages($foreignTenant->id);
-    $foreignOpportunity = \App\Models\Opportunity::factory()->create([
+    $foreignOpportunity = Opportunity::factory()->create([
         'tenant_id' => $foreignTenant->id,
         'pipeline_id' => $foreignPipeline->id,
         'pipeline_stage_id' => $foreignPipeline->stages->first()->id,

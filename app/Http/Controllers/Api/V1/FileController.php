@@ -94,7 +94,12 @@ class FileController extends Controller
     {
         $uploaded = $request->file('file');
         $tenantId = app(TenantContext::class)->id();
-        $extension = $uploaded->getClientOriginalExtension();
+
+        // Extensão e MIME derivados do CONTEÚDO do arquivo, nunca do que o
+        // cliente declarou: getClientOriginalExtension()/getClientMimeType()
+        // são strings arbitrárias do atacante e acabariam no path em disco e
+        // no Content-Type de quem baixa.
+        $extension = $uploaded->guessExtension();
         $diskPath = sprintf('%s/%s.%s', $tenantId, (string) Str::uuid7(), $extension ?: 'bin');
 
         Storage::disk(self::DISK)->put($diskPath, file_get_contents($uploaded->getRealPath()));
@@ -106,7 +111,7 @@ class FileController extends Controller
             'disk' => self::DISK,
             'path' => $diskPath,
             'original_name' => $uploaded->getClientOriginalName(),
-            'mime_type' => $uploaded->getClientMimeType(),
+            'mime_type' => $uploaded->getMimeType(),
             'size_bytes' => $uploaded->getSize(),
         ]);
 
@@ -215,6 +220,15 @@ class FileController extends Controller
     {
         $model = File::withoutGlobalScope(TenantScope::class)->findOrFail($file);
 
-        return Storage::disk($model->disk)->response($model->path, $model->original_name);
+        // "attachment" (o default do Laravel aqui é "inline") + nosniff: o
+        // arquivo é servido a partir da origem da API, onde vive o cookie de
+        // refresh. Renderizar conteúdo do usuário inline nessa origem
+        // transformaria um upload em XSS com acesso à sessão da vítima.
+        return Storage::disk($model->disk)->response(
+            $model->path,
+            $model->original_name,
+            ['X-Content-Type-Options' => 'nosniff'],
+            'attachment',
+        );
     }
 }

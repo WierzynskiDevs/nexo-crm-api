@@ -8,6 +8,7 @@ use App\Enums\EventKind;
 use App\Models\Client;
 use App\Models\Lead;
 use App\Models\Opportunity;
+use App\Rules\TenantScopedRules;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,7 +36,7 @@ class UpdateEventRequest extends FormRequest
             'ends_at' => ['sometimes', 'date', 'after_or_equal:starts_at'],
             'location' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
-            'owner_id' => ['nullable', 'uuid'],
+            'owner_id' => ['nullable', 'uuid', TenantScopedRules::activeMember()],
             'related_type' => ['nullable', Rule::in(array_keys(self::RELATED_MODELS))],
             'related_id' => ['nullable', 'uuid', 'required_with:related_type'],
         ];

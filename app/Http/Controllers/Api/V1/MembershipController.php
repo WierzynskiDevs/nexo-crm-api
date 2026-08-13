@@ -96,6 +96,16 @@ class MembershipController extends Controller
                 'tenant_id' => $tenant->id,
             ]);
 
+            // Reconvidar quem já é membro ativo rebaixaria a pessoa para
+            // "invited" (derrubando o acesso dela) e trocaria seu papel sem
+            // passar pela Policy de update nem gerar auditoria de mudança de
+            // papel — um caminho de edição por quem só tem "usuarios.criar".
+            abort_if(
+                $membership->exists && $membership->status === MembershipStatus::Active,
+                422,
+                'Este usuário já é membro ativo da empresa.',
+            );
+
             $membership->fill([
                 'role_id' => $request->input('role_id'),
                 'status' => MembershipStatus::Invited,
@@ -134,6 +144,16 @@ class MembershipController extends Controller
     )]
     public function update(UpdateMembershipRequest $request, Membership $member): MembershipResource
     {
+        // Mesma guarda do destroy(): ninguém altera o próprio papel nem se
+        // desativa. Sem isso, qualquer Admin com "usuarios.editar" se
+        // auto-promoveria — e um status "inactive" em si mesmo produziria
+        // lockout imediato (ResolveTenantContext exige membership ativa).
+        abort_if(
+            $member->user_id === Auth::guard('api')->id(),
+            422,
+            'Você não pode alterar seu próprio papel ou status.',
+        );
+
         $before = $member->only(['role_id', 'status']);
 
         $member->update($request->validated());
